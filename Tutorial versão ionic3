@@ -1,0 +1,284 @@
+
+
+
+
+--------------------------------------------------------------------------------------------------
+
+
+Lazy loading files
+
+	-Permique não seja seja necessario passar manualmente o nome de cada paginas para o app.module
+
+Criar um arquivo home.module.ts na pasta pages/home
+
+			import { NgModule } from '@angular/core';
+			import { IonicPageModule } from 'ionic-angular';
+
+			import { HomePage } from './home';
+
+			@NrModule({
+				declarations: [HomePage],
+				imports: [IonicPageModule.forChild(HomePage)],
+			})
+
+			export class HomeModule{
+				
+			}
+
+Apos no arquivo home.ts adicione :
+
+		import {NavController, IonicPage } from 'ionic-angular'; 
+
+		@IonicPage()
+
+
+
+E no arquivo app.component.st remova 
+		import { HomePage } from ......
+
+e altere dentro da classe o tipo de dado recebido de any para string.
+
+
+
+Dessa forma as paginas irão carregar de forma mais eficiente, esta é uma boa pratica. 
+
+Por  ultimo remova no app.module.ts a pagina inicial HomePage, to carrgametnos das propriedades no NgModule, deixando a chamada para o nome da aplicação.
+
+
+--------------------------------------------------------------------------------------------------
+
+
+Crie um projeto no firebase
+
+Pege as configurações de consele, para informar a sua aplicação
+
+Voltando ao seu projeto, crie na pasta o arquivo src/app/firebase.credentials.ts
+
+
+		export const FIREBASE_CONFIG = {
+			
+			#PASTE HERE
+		}
+
+Apos instale no seu projeto o firebase e angularfire2.
+		npm install firebase angularfire2 --save
+
+
+Dentro do arquivo app.module.ts
+
+(observe a ordem dessas impotações...)
+
+	import { AngularFireModule } from 'angularfire2';
+	import { AngularFireDatabaseModule } from 'angularfire2/database';
+	import { FIREBASE_CONFIG } from './firebase.credentials';
+
+	@NgModule{(
+		[...]
+		imports:[
+
+		AngularFireModule.initializeApp(FIREBASE_CONFIG),
+		AngularFireDatabaseModule		
+
+
+-----------------------------------------------------------------------------------------------------
+
+Criar um arquivo na lista de compras
+Na pasta Pages no atquivo home.html
+
+
+mude :
+
+	1 cor da nav bar
+		<ion-navbar color="primary">
+
+ 	2 O titulo : ion-title
+
+ 	3 Adicione bottoẽs ao final
+		<ion-buttons end>
+			<buttton ion-button>
+				<ion-icon name="add"></ion-icon>
+			</buttton >
+		</ion-butttons>
+
+Crie uma nova pagina usando o comando no terminal dentro da pasta do projeto
+
+	ionic generate page AddShoppingItem
+
+Sendo assim, altere o ion-button adcionando navPush="AddShoppingItemPage"
+
+		<ion-buttons end>
+			<buttton ion-button>
+				<ion-icon  navPush="AddShoppingItemPage" name="add"></ion-icon>
+			</buttton >
+		</ion-butttons>
+
+
+Criado assim uma navegação por telas atravez de bottões... 
+------------------------------------------------------------------------
+PARTE2
+--------------
+
+Tela para inserir itens:
+
+No arquivo add-shopping-item.html 
+
+	<ion-content padding>
+		<ion-item>
+			<ion lablel>Name</ion-label>
+			<ion-input placeholder="iPad Pro">
+			</ion-input>
+		</ion-item>
+
+Repita o trecho para:
+	Quantidade-Quantity
+	Preço-Price
+com a propriedade type="number"
+
+
+	<button ion-button block clear>Add</button>
+
+------------------------------------------------
+
+Criar uma nova pasta dentrode src, chamada models, dentro desta outra pasta chamada item e o seguinte arquivo: item.model.ts
+
+//obs: ? torna o campo key opcional
+
+		export interface Item {
+			key?: string;
+			name: string;
+			quantity:number;
+			price:number;
+		}
+
+e no arquivo add-shopping-item.ts adicione ...
+
+export class AddShoppingItemPage{
+	item: Item = {
+		name: '',
+		quantity: undefined,
+		price: undefined, 
+	};
+
+
+Após va para o arquivo add-shoppingitem.html
+	No ion-input adicone a propriedade [(ngModel)]="item.name" e repita isso para os outros ion-input
+---------------------------------------
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+Criar serviços
+
+Crie as pastas src/services/shopping-list, e o arquivo shopping-list.service.ts
+
+import { Injectable } from '@angular/core';
+import { AngularFireDatabase } from 'angularfire2/database';
+import { Item } from './../../models/item/item.model';
+
+@Injectable()
+export class ShoppingListService {
+	private shoppingListRef = this.db.list<Item>('shopping-list');
+
+	constructor(private db: AngularFireDatabase){}
+
+	getShoppingList(){
+		return this.shoppingListRef;
+	}
+
+	addItem(item: Item){
+	return this.shoppingListRef.push(item);
+	}
+}
+
+Va até o arquivo app.module.ts e nos providers adicone ShoppingListService
+
+
+import {ShoppingListService} from '...';
+
+	@NgModule({
+	...
+	providers:[
+	...
+	{...},
+	], ShoppingListSerice
+	})
+
+
+e no arquivo add-shopping-item.ts adicione a função
+
+		addItem(item : Item){
+			this.shopping.addItem(item);then(ref => {
+				console.log(ref.key);
+			})
+		}
+
+Altere o construtor adiconando os parametros:
+	(..., private shopping : ShoppingListService)
+
+e garanta que esteja importada a SshoppingListService com
+
+		import {ShoppingListService } from './../../services/shopping-list/shopping-list.service';
+
+No arquivo add-shopping-item.html adicone o evento click no botão
+
+<button ion-button block clear (click)="addItem(item)">Add</button>
+
+
+Ok, ser testar no brower e abrir o console irá ver a chave do item adiconado no log.
+
+
+Volte até o arquivo add-shopping-list.ts e altere para
+
+	addItem(item : Item){
+			this.shopping.addItem(item).then(ref => {
+				this.navCtrl.setRoot('HomePage', { key: ref.key })
+			});
+		}
+Assim a pagina sera alterada apos adiconar itens.
+
+---------------------------------------------------------
+
+Mostrando os itens
+
+Vá para home.ts no construtor da classe adiocine o parametro
+	shopping: ShoppingListService
+
+e
+
+	import {ShoppingListService } from './../../services/shopping-list/shopping-list.service';
+	import {item } from './../../models/item/item.model';
+
+	crie a variavel...
+
+	shoppingList$: Observable<Item[]>
+
+	no construtor o código
+
+		this.shoppingList$ = this.shopping
+		.getShoppingList() //db list
+		.snapshotChanges() // acessa e mapeia key  e value
+		.map(
+		changes  => {
+			return changes.map( c => ({
+				key: c.payload.key, ...c.payload.val()
+
+			}))
+		
+Vá para home.html
+
+alere o conteúdo do ion-content
+		<ion-list>
+			<ion-list-header>
+			Items
+			</ion-list-header>
+			<ion-item *ngFor="let item of shoppingList$ | ascync">
+				{{item.name}}
+			</ion-item>
+		</ion-list>
+
+----------------------------------
+
+
+AUla 10
+
